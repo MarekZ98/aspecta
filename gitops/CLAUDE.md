@@ -3,7 +3,7 @@
 Argo CD config. `scripts/bootstrap.sh` applies `projects/` and `root-app.yaml` once;
 after that the root app syncs `projects/*.yaml` and `apps/*.yaml` from git.
 
-## Apps (contracts §13)
+## Apps (`.claude/contracts.md` §13)
 
 | Wave | App | Namespace | Source |
 |---|---|---|---|

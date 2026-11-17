@@ -31,7 +31,7 @@ spec:
               value: "8080"
             - name: HTTPS_PORT
               value: "8443"
-            # Keep the log readable: only alert payloads, no probe requests.
+            # Skip the request dump for probes; the access log line stays.
             - name: LOG_IGNORE_PATH
               value: /healthz
           ports:
