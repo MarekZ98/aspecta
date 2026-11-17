@@ -1,5 +1,5 @@
 {{/*
-Object name prefix. The release is always "webapp" (contracts section 7),
+Object name prefix. The release is always "webapp" (set in gitops/apps/webapp.yaml),
 so names become webapp-backend, webapp-frontend and so on.
 */}}
 {{- define "webapp.fullname" -}}

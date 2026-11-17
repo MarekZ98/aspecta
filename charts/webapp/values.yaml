@@ -65,7 +65,7 @@ ingress:
     enabled: false
     secretName: ""
 
-# Default deny for the namespace plus the allow rules from contracts section 8.
+# Default deny for the namespace plus explicit allow rules (see docs/architecture.md).
 networkPolicy:
   enabled: true
   ingressControllerNamespace: traefik

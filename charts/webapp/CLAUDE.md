@@ -1,6 +1,6 @@
 # charts/webapp
 
-Helm chart for backend + frontend. Names, labels and values schema come from `docs/contracts.md` §7–§11.
+Helm chart for backend + frontend. Names, labels and values schema come from `.claude/contracts.md` §7–§11.
 
 ## Objects
 
