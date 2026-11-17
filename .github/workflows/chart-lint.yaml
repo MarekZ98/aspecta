@@ -10,6 +10,7 @@ on:
     paths:
       - charts/**
       - .github/workflows/chart-lint.yaml
+  workflow_dispatch: {}
 
 concurrency:
   group: chart-lint-${{ github.ref }}
