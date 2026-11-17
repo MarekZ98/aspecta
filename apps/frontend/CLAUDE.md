@@ -1,6 +1,6 @@
 # Frontend (React 19 + Vite 7)
 
-Contract: `docs/contracts.md` §6.
+Contract: `.claude/contracts.md` §6.
 
 - Runtime config comes from `/config.json` (`src/lib/config.ts`), never from build-time env.
   Only `VITE_APP_VERSION` is baked in at build time (footer).
