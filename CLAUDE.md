@@ -5,7 +5,7 @@ Helm chart, RBAC, NetworkPolicies, GitOps with Argo CD, CI/CD with GitHub Action
 monitoring with kube-prometheus-stack. Local target cluster is kind with Calico.
 
 ## Source of truth
-- `docs/contracts.md` – names, ports, labels, values schema, flows. Always follow it.
+- `.claude/contracts.md` (local, not in git) – names, ports, labels, values schema, flows. Always follow it.
   If it is wrong, fix it in a separate commit first.
 
 ## Layout
@@ -20,7 +20,7 @@ monitoring with kube-prometheus-stack. Local target cluster is kind with Calico.
 ## Rules
 - English for code, comments, docs and commits. Simple English (B2).
 - Strict TypeScript, no `any`. ESLint flat config. Path alias `@/` -> `src/`.
-- No secrets in git. Secrets come from External Secrets (see contracts §10).
+- No secrets in git. Secrets come from External Secrets (see `.claude/contracts.md` §10).
 - Pin every version (charts, images, GitHub Actions by commit SHA). No `latest`.
 - Commit directly to `main`. Agents never push (`.githooks/pre-push` blocks it).
 - Conventional commits: `feat(scope): ...`, `fix(scope): ...`, `ci: ...`, `docs: ...`.

@@ -1,7 +1,5 @@
 # Architecture
 
-Names and ports in this file come from [contracts.md](contracts.md).
-
 ## Components
 
 ```mermaid
@@ -58,25 +56,9 @@ flowchart TB
   argo -.->|polls| git[(GitHub)]
 ```
 
-## Request flow
-
-The frontend nginx is the only public entry. It serves the SPA and proxies `/api/` to the backend Service.
-nginx sets `X-Request-Id` to its own `$request_id`; the backend reuses it in its logs and returns it in the response, so one ID links the nginx access log and the backend log line.
-
-```mermaid
-sequenceDiagram
-  participant B as Browser
-  participant T as Traefik
-  participant N as frontend nginx
-  participant A as backend
-  B->>T: GET /api/info (Host aspecta.localtest.me)
-  T->>N: forward to webapp-frontend:8080
-  N->>A: proxy to webapp-backend:3000<br/>X-Request-Id = nginx $request_id
-  A->>A: log JSON line with requestId,<br/>count http_requests_total
-  A-->>N: 200 JSON, X-Request-Id
-  N-->>T: 200
-  T-->>B: 200, X-Request-Id
-```
+The frontend nginx is the only thing behind the Ingress. It serves the SPA and proxies `/api/` to the backend,
+so there is no CORS and the backend is not public. nginx passes its `$request_id` as `X-Request-Id`, and the backend
+logs it, so one ID links both log lines.
 
 ## NetworkPolicies
 
@@ -140,16 +122,16 @@ Traefik is in wave -2 on purpose. Argo CD reports an Ingress as Healthy only whe
 With a NodePort Service there is no load balancer address, so Traefik publishes `127.0.0.1` (the address kind maps to the host).
 If Traefik came after kube-prometheus-stack, the Grafana/Prometheus Ingresses would stay Progressing and block the next waves.
 
-## Design decisions
+## Smaller decisions
 
-**Separate metrics port.** The backend serves `/metrics` on its own Node HTTP server on port 9100. The Ingress and the nginx proxy only know port 3000, so metrics can never leak to the internet, and the NetworkPolicy can allow 9100 only from Prometheus. It also keeps the metrics endpoint out of the request metrics.
+- Chart and GitOps config live in the app repo. Simple for one app and one environment, and everything is in one place. With more environments I would move GitOps config to its own repo and promote by pull request.
+- Argo CD is not self-managed. `bootstrap.sh` installs it with Helm. Self-management adds a bootstrap loop that brings little for a cluster rebuilt with `make up`.
+- Polling, not a webhook. GitHub cannot reach a kind cluster on a laptop, so Argo CD polls every 60 s.
 
-**nginx proxies `/api`.** The browser talks to one origin, so there is no CORS setup and the backend is not public at all. The frontend is the only thing behind the Ingress. The nginx config that does the proxying lives in the chart ConfigMap; the image itself only serves the SPA, so it can run standalone.
+## Troubleshooting
 
-**HPA owns replicas.** When autoscaling is on, the Deployment has no `replicas` field. Otherwise every Argo CD sync would reset the replica count and fight the HPA. The cost: `kubectl scale` is not drift for Argo CD, the HPA corrects it instead.
-
-**Chart in the app repo.** App code, chart and GitOps config are in one repository. This is simple for one app and one environment, and a reviewer sees everything in one place. The trade-off: CI writes bot commits to the same repo, and access to config and code is the same. With several environments I would move the GitOps config to a separate repo and promote by pull request.
-
-**Argo CD is not self-managed.** `bootstrap.sh` installs Argo CD with Helm and Argo CD then manages everything else. Self-management adds a bootstrap loop (Argo CD syncing its own deployment) that brings little value for a local cluster that is rebuilt with `make up`. In production I would let Argo CD manage itself.
-
-**Polling instead of webhook.** GitHub cannot reach a kind cluster on a laptop, so Argo CD polls git every 60 seconds. A deploy takes about one minute longer than with a webhook, which is fine here. In production a GitHub webhook to Argo CD removes the delay.
+- Port 80 or 443 in use: `kind create cluster` fails. Stop the other web server or container (`docker ps`, `sudo ss -ltnp 'sport = :80'`) and run `make up` again.
+- `ImagePullBackOff` in `webapp`: CI has not run yet, or the GHCR packages are private. Run the `ci` workflow, make the packages public, then `kubectl delete pod -n webapp --all`.
+- App stuck in sync waves: look at the `root` app first. A wave waits until all apps of the previous wave are Healthy, so one failing platform app blocks `webapp`.
+- ExternalSecret `SecretSyncedError`: check that `secrets-store-rbac` is Synced, that Role `eso-reader` and its RoleBinding exist in `secrets-store`, and that the source secret `webapp-backend` exists there.
+- WSL clock drift (TLS or token errors after the laptop sleeps): `sudo hwclock -s` in WSL or `wsl --shutdown` in Windows.
