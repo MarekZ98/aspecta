@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Points the webapp chart at new image tags and bumps the chart patch version.
-# Interface: docs/contracts.md section 12.
 set -euo pipefail
 
 usage() {
