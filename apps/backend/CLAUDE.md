@@ -1,6 +1,6 @@
 # Backend (NestJS 11)
 
-Contract: `docs/contracts.md` §5.
+Contract: `.claude/contracts.md` §5.
 
 - Endpoints: `/api/info`, `/api/admin/stats` (Bearer `ADMIN_TOKEN`), `/api/chaos/error`, `/api/chaos/slow?ms=`,
   `/healthz`, `/readyz`. Metrics on a separate server: `:9100/metrics`.
