@@ -1,0 +1,8 @@
+#!/bin/sh
+# Block pushes from Claude Code agents. Pushes are done manually
+# (one push = one GitHub Actions run).
+if [ "${CLAUDECODE:-}" = "1" ]; then
+  echo "pre-push: push blocked because CLAUDECODE=1. Push manually." >&2
+  exit 1
+fi
+exit 0

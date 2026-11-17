@@ -1,0 +1,95 @@
+{{- if .Values.monitoring.prometheusRule.enabled }}
+{{- $runbook := .Values.monitoring.prometheusRule.runbookBaseUrl }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "webapp.fullname" . }}
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+  annotations:
+    {{- include "webapp.crdSyncOptions" . | nindent 4 }}
+spec:
+  groups:
+    - name: webapp.rules
+      rules:
+        - alert: WebappBackendDown
+          expr: absent(up{namespace="webapp",service="webapp-backend"} == 1)
+          for: 1m
+          labels:
+            severity: critical
+            team: webapp
+          annotations:
+            summary: Backend is down
+            description: 'Prometheus has no healthy webapp-backend target for 1 minute.'
+            runbook_url: {{ printf "%s#%s" $runbook (lower "WebappBackendDown") }}
+        - alert: WebappHighErrorRate
+          expr: sum(rate(http_requests_total{namespace="webapp",status=~"5.."}[5m])) / sum(rate(http_requests_total{namespace="webapp"}[5m])) > 0.05
+          for: 2m
+          labels:
+            severity: warning
+            team: webapp
+          annotations:
+            summary: High 5xx error rate
+            description: '{{ "{{" }} $value | humanizePercentage {{ "}}" }} of backend requests return 5xx (threshold 5%).'
+            runbook_url: {{ printf "%s#%s" $runbook (lower "WebappHighErrorRate") }}
+        - alert: WebappHighLatencyP95
+          expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace="webapp"}[5m]))) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+            team: webapp
+          annotations:
+            summary: High p95 latency
+            description: 'Backend p95 latency is {{ "{{" }} $value | humanizeDuration {{ "}}" }} (threshold 500ms).'
+            runbook_url: {{ printf "%s#%s" $runbook (lower "WebappHighLatencyP95") }}
+        - alert: WebappPodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total{namespace="webapp"}[15m]) > 3
+          for: 1m
+          labels:
+            severity: warning
+            team: webapp
+          annotations:
+            summary: Pod is crash looping
+            description: 'Container {{ "{{" }} $labels.container {{ "}}" }} in pod {{ "{{" }} $labels.pod {{ "}}" }} restarted {{ "{{" }} printf "%.0f" $value {{ "}}" }} times in 15 minutes.'
+            runbook_url: {{ printf "%s#%s" $runbook (lower "WebappPodCrashLooping") }}
+        - alert: WebappPodNotReady
+          expr: sum by (pod) (kube_pod_status_ready{namespace="webapp",condition="false"}) > 0
+          for: 5m
+          labels:
+            severity: warning
+            team: webapp
+          annotations:
+            summary: Pod is not ready
+            description: 'Pod {{ "{{" }} $labels.pod {{ "}}" }} has not been ready for 5 minutes.'
+            runbook_url: {{ printf "%s#%s" $runbook (lower "WebappPodNotReady") }}
+        - alert: WebappDeploymentReplicasMismatch
+          expr: kube_deployment_spec_replicas{namespace="webapp"} != kube_deployment_status_replicas_available{namespace="webapp"}
+          for: 10m
+          labels:
+            severity: warning
+            team: webapp
+          annotations:
+            summary: Deployment replicas mismatch
+            description: 'Deployment {{ "{{" }} $labels.deployment {{ "}}" }} has not had its desired {{ "{{" }} $value {{ "}}" }} replicas available for 10 minutes.'
+            runbook_url: {{ printf "%s#%s" $runbook (lower "WebappDeploymentReplicasMismatch") }}
+        - alert: WebappHPAMaxedOut
+          expr: kube_horizontalpodautoscaler_status_current_replicas{namespace="webapp"} >= kube_horizontalpodautoscaler_spec_max_replicas{namespace="webapp"}
+          for: 15m
+          labels:
+            severity: info
+            team: webapp
+          annotations:
+            summary: HPA at max replicas
+            description: 'HPA {{ "{{" }} $labels.horizontalpodautoscaler {{ "}}" }} has run at its maximum of {{ "{{" }} $value {{ "}}" }} replicas for 15 minutes.'
+            runbook_url: {{ printf "%s#%s" $runbook (lower "WebappHPAMaxedOut") }}
+        - alert: WebappContainerMemoryNearLimit
+          expr: max by (pod, container) (container_memory_working_set_bytes{namespace="webapp",container!=""}) / max by (pod, container) (kube_pod_container_resource_limits{namespace="webapp",resource="memory"}) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            team: webapp
+          annotations:
+            summary: Container memory near limit
+            description: 'Container {{ "{{" }} $labels.container {{ "}}" }} in pod {{ "{{" }} $labels.pod {{ "}}" }} uses {{ "{{" }} $value | humanizePercentage {{ "}}" }} of its memory limit.'
+            runbook_url: {{ printf "%s#%s" $runbook (lower "WebappContainerMemoryNearLimit") }}
+{{- end }}

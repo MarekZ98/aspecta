@@ -1,0 +1,60 @@
+configs:
+  params:
+    # TLS ends at Traefik; the UI is served over plain HTTP locally.
+    server.insecure: true
+  cm:
+    # Poll git every minute so CI tag bumps show up fast.
+    timeout.reconciliation: 60s
+    # Argo CD 1.8+ has no health check for Applications. Without it the
+    # root app does not wait for child apps and sync waves have no effect.
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil and obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        if obj.status.health.message ~= nil then
+          hs.message = obj.status.health.message
+        end
+      end
+      return hs
+
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+server:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostname: argocd.localtest.me
+
+applicationSet:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+redis:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi

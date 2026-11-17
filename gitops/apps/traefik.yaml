@@ -1,0 +1,64 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  source:
+    repoURL: https://traefik.github.io/charts
+    chart: traefik
+    targetRevision: 42.4.1
+    helm:
+      valuesObject:
+        service:
+          spec:
+            type: NodePort
+        # Fixed node ports, mapped to host ports 80/443 in cluster/kind-config.yaml.
+        ports:
+          web:
+            nodePort: 30080
+          websecure:
+            nodePort: 30443
+        ingressClass:
+          enabled: true
+          isDefaultClass: true
+        providers:
+          kubernetesIngress:
+            enabled: true
+            # A NodePort Service has no load balancer address, so Ingress status would stay
+            # empty and Argo CD would report every Ingress as Progressing. Publish the address
+            # that kind maps to the host instead.
+            publishedService:
+              enabled: false
+            ingressEndpoint:
+              ip: 127.0.0.1
+        accessLog:
+          enabled: true
+        metrics:
+          prometheus:
+            service:
+              enabled: true
+            serviceMonitor:
+              enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+    syncOptions:
+      - CreateNamespace=true
+      # The ServiceMonitor CRD comes from kube-prometheus-stack in the same wave; retry applies it later.
+      - SkipDryRunOnMissingResource=true

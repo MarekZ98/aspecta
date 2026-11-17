@@ -1,0 +1,10 @@
+installation:
+  cni:
+    type: Calico
+  calicoNetwork:
+    ipPools:
+      # Must match networking.podSubnet in kind-config.yaml.
+      - cidr: 192.168.0.0/16
+        encapsulation: VXLANCrossSubnet
+        natOutgoing: Enabled
+        nodeSelector: all()

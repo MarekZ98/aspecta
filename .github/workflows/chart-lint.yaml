@@ -1,0 +1,63 @@
+name: chart-lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - charts/**
+      - .github/workflows/chart-lint.yaml
+  pull_request:
+    paths:
+      - charts/**
+      - .github/workflows/chart-lint.yaml
+
+concurrency:
+  group: chart-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # Explicit shell turns on pipefail, so a failing helm template fails the step.
+    shell: bash
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CHART_DIR: charts/webapp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v4.3.2
+
+      - name: Helm lint
+        run: |
+          helm lint --strict "$CHART_DIR"
+          helm lint --strict "$CHART_DIR" -f "$CHART_DIR/values-kind.yaml"
+
+      - name: Install kubeconform
+        env:
+          KUBECONFORM_VERSION: v0.8.0
+          # From the CHECKSUMS file of the release.
+          KUBECONFORM_SHA256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
+        run: |
+          curl -fsSLo "$RUNNER_TEMP/kubeconform.tar.gz" \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  $RUNNER_TEMP/kubeconform.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/kubeconform.tar.gz" -C "$RUNNER_TEMP" kubeconform
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Validate rendered manifests
+        run: |
+          helm template webapp "$CHART_DIR" -n webapp -f "$CHART_DIR/values-kind.yaml" \
+            | kubeconform -strict -summary \
+                -schema-location default \
+                -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'

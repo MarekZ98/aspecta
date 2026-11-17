@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-reader
+  namespace: secrets-store
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-reader
+subjects:
+  # Used by SecretStore webapp/webapp-secrets-store (kubernetes provider).
+  - kind: ServiceAccount
+    name: webapp-eso-reader
+    namespace: webapp

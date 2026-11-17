@@ -1,0 +1,12 @@
+{{- if .Values.monitoring.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "webapp.fullname" . }}-dashboard
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  webapp.json: |-
+    {{- .Files.Get "files/grafana-dashboard.json" | nindent 4 }}
+{{- end }}

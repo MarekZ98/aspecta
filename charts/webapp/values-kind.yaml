@@ -1,0 +1,7 @@
+backend:
+  config:
+    APP_ENV: kind
+    CHAOS_ENABLED: "true"
+frontend:
+  runtimeConfig:
+    environment: kind

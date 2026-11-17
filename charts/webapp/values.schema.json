@@ -1,0 +1,224 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "webapp chart values",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["backend", "frontend", "ingress", "networkPolicy", "rbac", "guardrails", "monitoring"],
+  "definitions": {
+    "quantity": {
+      "type": ["string", "number"],
+      "pattern": "^[0-9]+(\\.[0-9]+)?(m|k|Ki|M|Mi|G|Gi|T|Ti)?$"
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[0-9]+(ms|s|m|h)$"
+    },
+    "cpuMemory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu", "memory"],
+      "properties": {
+        "cpu": { "$ref": "#/definitions/quantity" },
+        "memory": { "$ref": "#/definitions/quantity" }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "pullPolicy"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requests", "limits"],
+      "properties": {
+        "requests": { "$ref": "#/definitions/cpuMemory" },
+        "limits": { "$ref": "#/definitions/cpuMemory" }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "minReplicas", "maxReplicas", "targetCPUUtilizationPercentage"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 1 },
+        "maxReplicas": { "type": "integer", "minimum": 1 },
+        "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "pdb": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minAvailable"],
+      "properties": {
+        "minAvailable": { "type": ["integer", "string"] }
+      }
+    }
+  },
+  "properties": {
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "replicaCount", "port", "metricsPort", "config", "externalSecret", "resources", "autoscaling", "pdb"],
+      "properties": {
+        "image": { "$ref": "#/definitions/image" },
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "port": { "$ref": "#/definitions/port" },
+        "metricsPort": { "$ref": "#/definitions/port" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["APP_ENV", "GREETING", "LOG_LEVEL", "CHAOS_ENABLED", "SHUTDOWN_DELAY_MS"],
+          "properties": {
+            "APP_ENV": { "type": "string", "minLength": 1 },
+            "GREETING": { "type": "string" },
+            "LOG_LEVEL": { "type": "string", "enum": ["debug", "info", "warn", "error"] },
+            "CHAOS_ENABLED": { "type": "string", "enum": ["true", "false"] },
+            "SHUTDOWN_DELAY_MS": { "type": "string", "pattern": "^[0-9]+$" }
+          }
+        },
+        "externalSecret": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "refreshInterval", "remoteNamespace", "remoteKey"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "refreshInterval": { "$ref": "#/definitions/duration" },
+            "remoteNamespace": { "type": "string", "minLength": 1 },
+            "remoteKey": { "type": "string", "minLength": 1 }
+          }
+        },
+        "resources": { "$ref": "#/definitions/resources" },
+        "autoscaling": { "$ref": "#/definitions/autoscaling" },
+        "pdb": { "$ref": "#/definitions/pdb" }
+      }
+    },
+    "frontend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "replicaCount", "port", "runtimeConfig", "resources", "autoscaling", "pdb"],
+      "properties": {
+        "image": { "$ref": "#/definitions/image" },
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "port": { "$ref": "#/definitions/port" },
+        "runtimeConfig": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["appTitle", "environment"],
+          "properties": {
+            "appTitle": { "type": "string" },
+            "environment": { "type": "string" }
+          }
+        },
+        "resources": { "$ref": "#/definitions/resources" },
+        "autoscaling": { "$ref": "#/definitions/autoscaling" },
+        "pdb": { "$ref": "#/definitions/pdb" }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "className", "host", "tls"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string", "minLength": 1 },
+        "host": { "type": "string", "minLength": 1 },
+        "tls": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "secretName"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "secretName": { "type": "string" }
+          }
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "ingressControllerNamespace", "monitoringNamespace"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "ingressControllerNamespace": { "type": "string", "minLength": 1 },
+        "monitoringNamespace": { "type": "string", "minLength": 1 }
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "viewerGroup", "operatorGroup"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "viewerGroup": { "type": "string", "minLength": 1 },
+        "operatorGroup": { "type": "string", "minLength": 1 }
+      }
+    },
+    "guardrails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "quota", "defaultLimits", "defaultRequests"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "quota": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requestsCpu", "requestsMemory", "limitsCpu", "limitsMemory", "pods"],
+          "properties": {
+            "requestsCpu": { "$ref": "#/definitions/quantity" },
+            "requestsMemory": { "$ref": "#/definitions/quantity" },
+            "limitsCpu": { "$ref": "#/definitions/quantity" },
+            "limitsMemory": { "$ref": "#/definitions/quantity" },
+            "pods": { "$ref": "#/definitions/quantity" }
+          }
+        },
+        "defaultLimits": { "$ref": "#/definitions/cpuMemory" },
+        "defaultRequests": { "$ref": "#/definitions/cpuMemory" }
+      }
+    },
+    "monitoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["serviceMonitor", "prometheusRule", "grafanaDashboard"],
+      "properties": {
+        "serviceMonitor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "interval"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "interval": { "$ref": "#/definitions/duration" }
+          }
+        },
+        "prometheusRule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "runbookBaseUrl"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "runbookBaseUrl": { "type": "string", "pattern": "^https?://" }
+          }
+        },
+        "grafanaDashboard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

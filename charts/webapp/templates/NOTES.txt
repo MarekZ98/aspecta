@@ -1,0 +1,16 @@
+{{- $fullname := include "webapp.fullname" . -}}
+{{- if .Values.ingress.enabled }}
+App URL: {{ if .Values.ingress.tls.enabled }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}
+{{- else }}
+Ingress is disabled. Port-forward the frontend:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ $fullname }}-frontend {{ .Values.frontend.port }}:http
+{{- end }}
+
+{{- if .Values.backend.externalSecret.enabled }}
+
+The admin token is synced by External Secrets from
+{{ .Values.backend.externalSecret.remoteNamespace }}/{{ .Values.backend.externalSecret.remoteKey }} (key ADMIN_TOKEN). Read it with:
+  kubectl -n {{ .Values.backend.externalSecret.remoteNamespace }} get secret {{ .Values.backend.externalSecret.remoteKey }} -o jsonpath='{.data.ADMIN_TOKEN}' | base64 -d
+{{- end }}
+
+Argo CD application: http://argocd.localtest.me/applications/argocd/{{ .Release.Name }}

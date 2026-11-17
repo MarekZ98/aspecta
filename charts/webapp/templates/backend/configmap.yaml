@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "webapp.fullname" . }}-backend-config
+  labels:
+    {{- include "webapp.componentLabels" (dict "root" $ "component" "backend") | nindent 4 }}
+data:
+  PORT: {{ .Values.backend.port | quote }}
+  METRICS_PORT: {{ .Values.backend.metricsPort | quote }}
+  {{- range $key, $value := .Values.backend.config }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}

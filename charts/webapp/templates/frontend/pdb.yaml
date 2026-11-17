@@ -1,0 +1,11 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "webapp.fullname" . }}-frontend
+  labels:
+    {{- include "webapp.componentLabels" (dict "root" $ "component" "frontend") | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.frontend.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "webapp.componentSelectorLabels" (dict "root" $ "component" "frontend") | nindent 6 }}

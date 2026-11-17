@@ -1,0 +1,124 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 93.3.1
+    helm:
+      valuesObject:
+        # kind runs these components on localhost only, so Prometheus cannot scrape them.
+        kubeEtcd:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeProxy:
+          enabled: false
+        defaultRules:
+          rules:
+            etcd: false
+            kubeControllerManager: false
+            kubeSchedulerAlerting: false
+            kubeSchedulerRecording: false
+            kubeProxy: false
+          # kind nodes are containers without NTP, so this alert would always fire.
+          disabled:
+            NodeClockNotSynchronising: true
+        prometheus:
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            hosts:
+              - prometheus.localtest.me
+          prometheusSpec:
+            # Select ServiceMonitors, PodMonitors and rules from all releases,
+            # not only the ones labelled for this Helm release.
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            retention: 2d
+            scrapeInterval: 15s
+            evaluationInterval: 15s
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 1Gi
+        alertmanager:
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            hosts:
+              - alertmanager.localtest.me
+          config:
+            route:
+              receiver: webhook
+              group_by:
+                - alertname
+                - namespace
+              group_wait: 30s
+              group_interval: 5m
+              repeat_interval: 4h
+              routes:
+                - receiver: "null"
+                  matchers:
+                    - alertname =~ "Watchdog|InfoInhibitor"
+            receivers:
+              - name: "null"
+              - name: webhook
+                webhook_configs:
+                  - url: http://alert-webhook.monitoring.svc:8080/alerts
+                    send_resolved: true
+            inhibit_rules:
+              - source_matchers:
+                  - severity = "critical"
+                target_matchers:
+                  - severity = "warning"
+                equal:
+                  - alertname
+                  - namespace
+        grafana:
+          admin:
+            # Created by scripts/bootstrap.sh, never stored in git.
+            existingSecret: grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+              searchNamespace: ALL
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            hosts:
+              - grafana.localtest.me
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+    syncOptions:
+      - CreateNamespace=true
+      # The Prometheus Operator CRDs are too big for client-side apply.
+      - ServerSideApply=true

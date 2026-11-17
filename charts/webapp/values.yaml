@@ -1,0 +1,101 @@
+# NestJS API. CI bumps backend.image.tag on every release.
+backend:
+  image:
+    repository: ghcr.io/marekz98/aspecta-backend
+    tag: "sha-a6c581b"
+    pullPolicy: IfNotPresent
+  # Used only when autoscaling is disabled.
+  replicaCount: 2
+  port: 3000
+  metricsPort: 9100
+  # Rendered into ConfigMap webapp-backend-config and loaded with envFrom.
+  config:
+    APP_ENV: production
+    GREETING: Hello from Aspecta
+    LOG_LEVEL: info
+    CHAOS_ENABLED: "false"
+    SHUTDOWN_DELAY_MS: "5000"
+  # ADMIN_TOKEN is synced by External Secrets from <remoteNamespace>/<remoteKey>.
+  externalSecret:
+    enabled: true
+    refreshInterval: 1m
+    remoteNamespace: secrets-store
+    remoteKey: webapp-backend
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    minAvailable: 1
+
+# React SPA served by nginx, which also proxies /api/ to the backend.
+# CI bumps frontend.image.tag on every release.
+frontend:
+  image:
+    repository: ghcr.io/marekz98/aspecta-frontend
+    tag: "sha-a6c581b"
+    pullPolicy: IfNotPresent
+  # Used only when autoscaling is disabled.
+  replicaCount: 2
+  port: 8080
+  # Served as /config.json and read by the SPA at start.
+  runtimeConfig:
+    appTitle: Aspecta
+    environment: production
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { cpu: 200m, memory: 64Mi }
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    minAvailable: 1
+
+ingress:
+  enabled: true
+  className: traefik
+  host: aspecta.localtest.me
+  tls:
+    enabled: false
+    secretName: ""
+
+# Default deny for the namespace plus the allow rules from contracts section 8.
+networkPolicy:
+  enabled: true
+  ingressControllerNamespace: traefik
+  monitoringNamespace: monitoring
+
+# Namespaced Roles bound to groups from the cluster identity provider.
+rbac:
+  enabled: true
+  viewerGroup: webapp-viewers
+  operatorGroup: webapp-operators
+
+# Namespace ResourceQuota and LimitRange defaults for containers without resources.
+guardrails:
+  enabled: true
+  quota:
+    requestsCpu: "2"
+    requestsMemory: 2Gi
+    limitsCpu: "4"
+    limitsMemory: 4Gi
+    pods: "30"
+  defaultLimits: { cpu: 200m, memory: 256Mi }
+  defaultRequests: { cpu: 50m, memory: 64Mi }
+
+# Objects for kube-prometheus-stack (CRDs must exist in the cluster).
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+  prometheusRule:
+    enabled: true
+    runbookBaseUrl: https://github.com/MarekZ98/aspecta/blob/main/docs/alerts.md
+  grafanaDashboard:
+    enabled: true

@@ -1,0 +1,80 @@
+{{- define "webapp.viewerRules" -}}
+- apiGroups: [""]
+  resources: [pods, pods/log, services, endpoints, configmaps, events]
+  verbs: [get, list, watch]
+- apiGroups: [apps]
+  resources: [deployments, replicasets]
+  verbs: [get, list, watch]
+- apiGroups: [autoscaling]
+  resources: [horizontalpodautoscalers]
+  verbs: [get, list, watch]
+- apiGroups: [networking.k8s.io]
+  resources: [ingresses, networkpolicies]
+  verbs: [get, list, watch]
+- apiGroups: [policy]
+  resources: [poddisruptionbudgets]
+  verbs: [get, list, watch]
+{{- end -}}
+{{- if .Values.rbac.enabled }}
+{{- $fullname := include "webapp.fullname" . }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullname }}-viewer
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+rules:
+  {{- include "webapp.viewerRules" . | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullname }}-viewer
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullname }}-viewer
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: {{ .Values.rbac.viewerGroup }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullname }}-operator
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+rules:
+  {{- include "webapp.viewerRules" . | nindent 2 }}
+  # rollout restart patches the pod template annotation. RBAC cannot limit
+  # which fields a patch changes; Argo CD selfHeal reverts any other drift.
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [{{ $fullname }}-backend, {{ $fullname }}-frontend]
+    verbs: [patch]
+  - apiGroups: [apps]
+    resources: [deployments/scale]
+    resourceNames: [{{ $fullname }}-backend, {{ $fullname }}-frontend]
+    verbs: [get, update, patch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullname }}-operator
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullname }}-operator
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: {{ .Values.rbac.operatorGroup }}
+{{- end }}

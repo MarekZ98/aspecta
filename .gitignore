@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tgz
+*.log
+
+# Local env and secrets
+.env
+.env.*
+!.env.example
+.secrets/
+
+# Local AI tooling (Claude Code instructions, agent tasks, push guard hook)
+.claude/
+CLAUDE.md
+.githooks/
+
+# Assignment (not part of the repo)
+Aspecta_zadanie*.pdf
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
