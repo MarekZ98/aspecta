@@ -2,8 +2,8 @@ apiVersion: v2
 name: webapp
 description: Aspecta web app (NestJS backend and React frontend) with security and monitoring objects
 type: application
-version: 0.1.1
-appVersion: "sha-a6c581b"
+version: 0.1.2
+appVersion: "sha-85f20f9"
 kubeVersion: ">=1.30.0-0"
 home: https://github.com/MarekZ98/aspecta
 sources:
